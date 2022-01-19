@@ -1,0 +1,32 @@
+{
+  "bin": {
+    "mythix-cli": "./bin/mythix-cli.js"
+  },
+  "name": "mythix-cli",
+  "version": "0.1.0",
+  "description": "Mythix CLI utility",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/th317erd/mythix-cli.git"
+  },
+  "keywords": [
+    "mythix",
+    "orm",
+    "web-server",
+    "webserver",
+    "framework"
+  ],
+  "author": "Wyatt Greenway",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/th317erd/mythix-cli/issues"
+  },
+  "homepage": "https://github.com/th317erd/mythix-cli#readme",
+  "dependencies": {
+    "commander": "^8.3.0"
+  }
+}

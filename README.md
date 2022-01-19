@@ -1,2 +1,3 @@
 # mythix-cli
-Mythin CLI utility
+
+Mythix CLI utility
