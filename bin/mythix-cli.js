@@ -41,7 +41,7 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
 
   var argv        = hideBin(process.argv).concat('');
   var rootCommand = yargs(argv);
-  var application = await mythixCLI.createApplication(Application, { autoReload: false, database: false, httpServer: false }, false);
+  var application = await mythixCLI.createApplication(Application, { autoReload: false, database: false, httpServer: false });
 
   var commands = await mythixCLI.loadCommands(rootCommand, application);
 
@@ -54,6 +54,8 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
       commandPath,
       command,
     );
+
+    await application.stop();
   });
 
   rootCommand.version(packageJSON.version).parse();
