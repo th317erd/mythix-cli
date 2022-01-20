@@ -5,7 +5,7 @@
   "name": "mythix-cli",
   "version": "0.1.0",
   "description": "Mythix CLI utility",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/th317erd/mythix-cli#readme",
   "dependencies": {
-    "commander": "^8.3.0"
+    "simple-yargs": "^0.1.4",
+    "yargs": "^17.3.1"
   }
 }
