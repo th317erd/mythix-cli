@@ -39,15 +39,17 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
   if (typeof Application !== 'function')
     throw new Error('Expected to find an Application class from "getApplicationClass", but none was returned.');
 
-  var argv        = hideBin(process.argv).concat('');
-  var rootCommand = yargs(argv);
-  var application = await mythixCLI.createApplication(Application, { autoReload: false, database: false, httpServer: false });
+  var argv                = hideBin(process.argv).concat('');
+  var rootCommand         = yargs(argv);
+  var application         = await mythixCLI.createApplication(Application, { autoReload: false, database: false, httpServer: false });
+  var applicationOptions  = application.getOptions();
 
-  var commands = await mythixCLI.loadCommands(rootCommand, application);
+  var commands = await mythixCLI.loadCommands(applicationOptions.commandsPath);
 
   rootCommand = createYargsCommands(rootCommand, commands, async function(command, commandPath) {
     await mythixCLI.executeCommand(
       config.configPath,
+      applicationOptions.commandsPath,
       Path.dirname(require.resolve('yargs')),
       Path.dirname(require.resolve('simple-yargs', '..')),
       argv,
