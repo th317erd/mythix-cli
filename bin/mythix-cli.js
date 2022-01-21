@@ -20,13 +20,17 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
     actionHelper: function(commandName) {
       var Klass = commandsObj[commandName];
       return actionHandler.bind(Klass, commandName, Klass.path);
-    }
+    },
   });
 }
 
 (async function() {
   const packageJSONPath = Path.resolve(__dirname, '..', 'package.json');
   const packageJSON     = require(packageJSONPath);
+
+  // Windows hack
+  if(!process.env.PWD)
+    process.env.PWD = process.cwd();
 
   var PWD = process.env.PWD;
 
@@ -60,5 +64,5 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
     await application.stop();
   });
 
-  rootCommand.version(packageJSON.version).parse();
+  rootCommand.version(packageJSON.version).strictCommands().wrap(120).parse();
 })();
