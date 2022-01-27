@@ -78,13 +78,12 @@ function walkDir(rootPath, _options, _callback, _allFiles, _depth) {
 function spawnProcess(name, args, options) {
   return new Promise((resolve, reject) => {
     try {
-      console.log('RUNNING COMMAND: ', [ name ].concat(args).join(' '));
       var childProcess = spawn(
         name,
         args,
         Object.assign({}, options || {}, {
           env:    Object.assign({}, process.env, (options || {}).env || {}),
-          stdio:  'pipe',
+          stdio:  'inherit',
         })
       );
 
@@ -128,13 +127,9 @@ function getTemplatedFileName(fileName, context) {
 function runTemplateOnFile(fullFileName, context) {
   var content = FileSystem.readFileSync(fullFileName, 'utf8');
 
-  if (fullFileName === '/home/wyatt/Projects/mythix-app-template/app/config/__sensitive.js__')
-    console.log('RUNNING TEMPLATE ON: ', fullFileName, content);
-
   var newContent = content.replace(/<<<([A-Z0-9_]+)>>>/g, function(m, varName) {
     var func = context[varName];
 
-    console.log('VAR NAME: ', varName, context);
     if (typeof func !== 'function')
       return '';
 
@@ -144,7 +139,7 @@ function runTemplateOnFile(fullFileName, context) {
   if (newContent === content)
     return;
 
-  console.log(`WOULD UPDATE FILE TO: ${fullFileName}:\n${newContent}`);
+  FileSystem.writeFileSync(fullFileName, newContent, 'utf8');
 }
 
 function runTemplateEngineOnProject(projectPath, context) {
@@ -165,9 +160,12 @@ function runTemplateEngineOnProject(projectPath, context) {
       var newFileName = getTemplatedFileName(fileName, context);
       if (newFileName !== fileName) {
         fileName = newFileName;
+
         newFileName = Path.resolve(Path.dirname(fullFileName), newFileName);
-        console.log(`WOULD RENAME '${fullFileName}' to '${newFileName}'`);
-        //fullFileName = newFileName;
+
+        FileSystem.renameSync(fullFileName, newFileName)
+
+        fullFileName = newFileName;
       }
 
       if (stats.isFile())
@@ -177,8 +175,10 @@ function runTemplateEngineOnProject(projectPath, context) {
 }
 
 async function initApplication(_, args) {
-  if (!args.dir || !('' + dir).match(/\S/))
+  if (!args.dir || !('' + args.dir).match(/\S/))
     args.dir = Path.resolve(process.env.PWD);
+  else
+    args.dir = Path.resolve(args.dir);
 
   try {
     var templateClonePath = Path.resolve(args.dir, args.appName);
@@ -187,11 +187,13 @@ async function initApplication(_, args) {
     if (args.tag && args.tag.match(/\S/))
       processArgs = [ '-b', args.tag ].concat(processArgs);
 
-    // await spawnProcess('git', [ 'clone' ].concat(processArgs));
+    await spawnProcess('git', [ 'clone' ].concat(processArgs));
 
-    // FileSystem.rmSync(Path.resolve(templateClonePath, '.git'), { recursive: true, force: true });
+    FileSystem.rmSync(Path.resolve(templateClonePath, '.git'), { recursive: true, force: true });
 
-    runTemplateEngineOnProject(templateClonePath, createTemplateEngineContext());
+    runTemplateEngineOnProject(templateClonePath, createTemplateEngineContext(args.appName));
+
+    await spawnProcess('npm', [ 'i' ], { env: { PWD: templateClonePath, CWD: templateClonePath }, cwd: templateClonePath });
   } catch (error) {
     console.error('ERROR: ', error);
   }
@@ -225,13 +227,15 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
     process.env.PWD = process.cwd();
 
   var PWD = process.env.PWD;
-
-  var argv        = hideBin(process.argv);
-  var rootCommand = yargs(argv);
+  var argv = hideBin(process.argv);
+  var rootCommand;
 
   try {
     if (argv[0] !== 'init') {
-      var mythixPath    = Path.dirname(require.resolve('mythix'));
+      argv        = hideBin(process.argv).concat('');
+      rootCommand = yargs(argv);
+
+      var mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
       var mythixCLIPAth = Path.resolve(mythixPath, 'cli');
       var mythixCLI     = require(mythixCLIPAth);
       var config        = mythixCLI.loadMythixConfig(PWD);
@@ -258,8 +262,13 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
 
         await application.stop();
       });
+    } else {
+      argv        = hideBin(process.argv);
+      rootCommand = yargs(argv);
     }
-  } catch (error) {}
+  } catch (error) {
+    console.error(mythixPath, error);
+  }
 
   rootCommand = SimpleYargs.buildCommands(rootCommand, initApplication, [ 'init(Create a new application with the given name) <appName:string(Specify application name)> [-d,-dir:string(Path at which to create application)] [-t,-template:string(Git URL to use to clone and create new project from)=https://github.com/th317erd/mythix-app-template.git(Default "https://github.com/th317erd/mythix-app-template.git")] [-tag:string(Specify tag or commit hash to clone template from)]' ]);
 
