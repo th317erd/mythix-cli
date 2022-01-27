@@ -194,6 +194,14 @@ async function initApplication(_, args) {
     runTemplateEngineOnProject(templateClonePath, createTemplateEngineContext(args.appName));
 
     await spawnProcess('npm', [ 'i' ], { env: { PWD: templateClonePath, CWD: templateClonePath }, cwd: templateClonePath });
+
+    console.log(`Empty mythix project created at ${templateClonePath}`);
+    console.log('To finalize setup you need to:');
+    console.log('  1) Select and configure the correct database driver for Sequelize');
+    console.log('  2) Define the models for your application');
+    console.log('  3) Create an initial migration for your models: `npx mythix-cli makemigrations --name initial`');
+    console.log('  4) Run migrations: `npx mythix-cli migrate`');
+    console.log('  5) Finally run your application: `npx mythix-cli serve`');
   } catch (error) {
     console.error('ERROR: ', error);
   }
