@@ -26,6 +26,9 @@
     "url": "https://github.com/th317erd/mythix-cli/issues"
   },
   "homepage": "https://github.com/th317erd/mythix-cli#readme",
+  "peerDependencies": {
+    "mythix": "^1.1.0"
+  },
   "dependencies": {
     "simple-yargs": "^0.1.5",
     "yargs": "^17.3.1"
