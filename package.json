@@ -3,7 +3,7 @@
     "mythix-cli": "./bin/mythix-cli.js"
   },
   "name": "mythix-cli",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "Mythix CLI utility",
   "main": "src/index.js",
   "scripts": {
