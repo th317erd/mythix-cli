@@ -266,6 +266,7 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
           argv,
           commandPath,
           command,
+          config,
         );
 
         await application.stop();
