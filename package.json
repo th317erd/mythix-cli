@@ -27,7 +27,7 @@
   },
   "homepage": "https://github.com/th317erd/mythix-cli#readme",
   "peerDependencies": {
-    "mythix": "^2.4.7"
+    "mythix": "^2.4.14"
   },
   "dependencies": {
     "cmded": "^1.2.1",
