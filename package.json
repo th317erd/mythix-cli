@@ -30,7 +30,10 @@
     "mythix": "^2.4.7"
   },
   "dependencies": {
-    "simple-yargs": "^0.1.5",
-    "yargs": "^17.3.1"
+    "cmded": "^1.2.1",
+    "nife": "^1.11.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.23.0"
   }
 }

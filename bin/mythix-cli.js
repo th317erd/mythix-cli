@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 
-const Path      = require('path');
-const { spawn } = require('child_process');
+const Path              = require('path');
+const { spawn }         = require('child_process');
+const { CMDed, Types }  = require('cmded');
 
 function spawnCommand(command, args, options) {
-  console.log('Spawning: ', command, args);
-
   return new Promise((resolve, reject) => {
     try {
       let childProcess = spawn(
@@ -33,14 +32,24 @@ function spawnCommand(command, args, options) {
 (async function () {
   let config;
 
+  let argOptions = CMDed(({ $, store }) => {
+    $('--config', Types.STRING({
+      format: Path.resolve,
+    })) || store({ config: Path.join(process.env.PWD, '.mythix-config.js') });
+
+    $('--runtime', Types.STRING());
+
+    return true;
+  });
+
   try {
-    config = require(Path.join(process.env.PWD, '.mythix-config.js'));
+    config = require(argOptions.config);
   } catch (error) {
     config = {};
   }
 
   const args        = process.argv.slice(2);
-  const runtime     = config.runtime || 'node';
+  const runtime     = argOptions.runtime || config.runtime || 'node';
   const runtimeArgs = config.runtimeArgs || [];
   const commands    = [ runtime, (process.platform == 'win32') ? `${runtime}.cmd` : undefined ].filter(Boolean);
 
@@ -48,7 +57,7 @@ function spawnCommand(command, args, options) {
     let command = commands[i];
 
     try {
-      await spawnCommand(command, runtimeArgs.concat([ Path.resolve(__dirname, 'runner.js') ], [ '--' ], args));
+      await spawnCommand(command, runtimeArgs.concat([ Path.resolve(__dirname, 'runner.js') ], args));
     } catch (error) {
       if (error.code === 'ENOENT' && (i + 1) < commands.length)
         continue;
@@ -58,4 +67,3 @@ function spawnCommand(command, args, options) {
     }
   }
 })();
-

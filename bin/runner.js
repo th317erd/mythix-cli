@@ -1,9 +1,12 @@
+const Nife        = require('nife');
 const Path        = require('path');
 const FileSystem  = require('fs');
-const yargs       = require('yargs/yargs');
-const { hideBin } = require('yargs/helpers');
-const SimpleYargs = require('simple-yargs');
 const { spawn }   = require('child_process');
+
+const {
+  CMDed,
+  showHelp,
+} = require('cmded');
 
 const {
   createHash,
@@ -11,15 +14,15 @@ const {
 } = require('crypto');
 
 function randomBytes(length) {
-  var buffer = Buffer.alloc(length);
+  let buffer = Buffer.alloc(length);
   randomFillSync(buffer);
 
   return buffer;
 }
 
 function randomHash(type = 'sha256', length = 128) {
-  var bytes = randomBytes(length);
-  var hash  = createHash(type);
+  let bytes = randomBytes(length);
+  let hash  = createHash(type);
 
   hash.update(bytes);
 
@@ -27,17 +30,17 @@ function randomHash(type = 'sha256', length = 128) {
 }
 
 function walkDir(rootPath, _options, _callback, _allFiles, _depth) {
-  var depth       = _depth || 0;
-  var allFiles    = _allFiles || [];
-  var callback    = (typeof _options === 'function') ? _options : _callback;
-  var options     = (typeof _options !== 'function' && _options) ? _options : {};
-  var filterFunc  = options.filter;
-  var fileNames   = FileSystem.readdirSync(rootPath);
+  let depth       = _depth || 0;
+  let allFiles    = _allFiles || [];
+  let callback    = (typeof _options === 'function') ? _options : _callback;
+  let options     = (typeof _options !== 'function' && _options) ? _options : {};
+  let filterFunc  = options.filter;
+  let fileNames   = FileSystem.readdirSync(rootPath);
 
-  for (var i = 0, il = fileNames.length; i < il; i++) {
-    var fileName      = fileNames[i];
-    var fullFileName  = Path.join(rootPath, fileName);
-    var stats         = FileSystem.statSync(fullFileName);
+  for (let i = 0, il = fileNames.length; i < il; i++) {
+    let fileName      = fileNames[i];
+    let fullFileName  = Path.join(rootPath, fileName);
+    let stats         = FileSystem.statSync(fullFileName);
 
     if (typeof filterFunc === 'function' && !filterFunc(fullFileName, fileName, stats, rootPath, depth))
       continue;
@@ -64,7 +67,7 @@ function walkDir(rootPath, _options, _callback, _allFiles, _depth) {
 function spawnProcess(name, args, options) {
   return new Promise((resolve, reject) => {
     try {
-      var childProcess = spawn(
+      let childProcess = spawn(
         name,
         args,
         Object.assign({}, options || {}, {
@@ -79,7 +82,7 @@ function spawnProcess(name, args, options) {
 
       childProcess.on('close', (code) => {
         if (code !== 0) {
-          var error = new Error(`Process ${name} exited with non-zero code`);
+          let error = new Error(`Process ${name} exited with non-zero code`);
           return reject(error);
         }
 
@@ -92,7 +95,7 @@ function spawnProcess(name, args, options) {
 }
 
 function createTemplateEngineContext(appName) {
-  var context = Object.create(null);
+  let context = Object.create(null);
 
   context.APP_NAME      = () => appName;
   context.RANDOM_SHA256 = () => randomHash('sha256');
@@ -102,7 +105,7 @@ function createTemplateEngineContext(appName) {
 
 function getTemplatedFileName(fileName, context) {
   return fileName.replace(/__([A-Z0-9_]+)__/g, function(m, varName) {
-    var func = context[varName];
+    let func = context[varName];
     if (typeof func !== 'function')
       return '';
 
@@ -111,10 +114,10 @@ function getTemplatedFileName(fileName, context) {
 }
 
 function runTemplateOnFile(fullFileName, context) {
-  var content = FileSystem.readFileSync(fullFileName, 'utf8');
+  let content = FileSystem.readFileSync(fullFileName, 'utf8');
 
-  var newContent = content.replace(/<<<([A-Z0-9_]+)>>>/g, function(m, varName) {
-    var func = context[varName];
+  let newContent = content.replace(/<<<([A-Z0-9_]+)>>>/g, function(m, varName) {
+    let func = context[varName];
 
     if (typeof func !== 'function')
       return '';
@@ -140,10 +143,10 @@ function runTemplateEngineOnProject(projectPath, context) {
       },
     },
     (_fullFileName, _fileName, rootPath, depth, stats) => {
-      var fullFileName  = _fullFileName;
-      var fileName      = _fileName;
+      let fullFileName  = _fullFileName;
+      let fileName      = _fileName;
 
-      var newFileName = getTemplatedFileName(fileName, context);
+      let newFileName = getTemplatedFileName(fileName, context);
       if (newFileName !== fileName) {
         fileName = newFileName;
 
@@ -160,18 +163,24 @@ function runTemplateEngineOnProject(projectPath, context) {
   );
 }
 
-async function initApplication(_, args) {
+async function initApplication(args) {
   if (!args.dir || !('' + args.dir).match(/\S/))
     args.dir = Path.resolve(process.env.PWD);
   else
     args.dir = Path.resolve(args.dir);
 
   try {
-    var templateClonePath = Path.resolve(args.dir, args.appName);
-    var processArgs       = [ args.template, templateClonePath ];
+    let templateClonePath = Path.resolve(args.dir, args.appName);
+    let processArgs       = [ args.template, templateClonePath ];
+    let tag;
 
-    if (args.tag && args.tag.match(/\S/))
-      processArgs = [ '-b', args.tag ].concat(processArgs);
+    templateClonePath = templateClonePath.replace(/#([^#]+)$/, (m, hash) => {
+      tag = hash;
+      return '';
+    });
+
+    if (tag && tag.match(/\S/))
+      processArgs = [ '-b', tag ].concat(processArgs);
 
     await spawnProcess('git', [ 'clone' ].concat(processArgs));
 
@@ -183,33 +192,73 @@ async function initApplication(_, args) {
 
     console.log(`Empty mythix project created at ${templateClonePath}`);
     console.log('To finalize setup you need to:');
-    console.log('  1) Select and configure the correct database driver for Sequelize');
+    console.log('  1) Select and configure the correct database driver for mythix-orm');
     console.log('  2) Define the models for your application');
     console.log('  3) Create an initial migration for your models: `npx mythix-cli makemigrations --name initial`');
     console.log('  4) Run migrations: `npx mythix-cli migrate`');
     console.log('  5) Finally run your application: `npx mythix-cli serve`');
   } catch (error) {
     console.error('ERROR: ', error);
+    process.exit(1);
   }
 }
 
-function createYargsCommands(yargs, commandsObj, actionHandler) {
-  var commands      = [];
-  var commandNames  = Object.keys(commandsObj);
+function generateCommandHelp(commandsObj, globalHelp) {
+  let commandNames = Object.keys(commandsObj || {});
+  for (let i = 0, il = commandNames.length; i < il; i++) {
+    let commandName = commandNames[i];
+    let Klass       = commandsObj[commandName];
+    let help        = null;
 
-  for (var i = 0, il = commandNames.length; i < il; i++) {
-    var commandName = commandNames[i];
-    var Klass       = commandsObj[commandName];
+    if (typeof Klass.commandArguments === 'function') {
+      let result = (Klass.commandArguments() || {});
+      help = result.help;
+    }
 
-    commands.push(Klass.commandString);
+    if (!help) {
+      help = {
+        '@usage': `mythix-cli ${commandName}`,
+        '@title': `Invoke the "${commandName}" command`,
+        '@see':   `See: 'mythix-cli test --help' for more help`,
+      };
+    }
+
+    if (!help['@see'])
+      help['@see'] = `See: 'mythix-cli ${commandName} --help' for more help`;
+
+    globalHelp[commandName] = help;
+  }
+}
+
+function commandRunners(commandsObj, context) {
+  let commandNames = Object.keys(commandsObj);
+
+  for (let i = 0, il = commandNames.length; i < il; i++) {
+    let commandName = commandNames[i];
+    let Klass       = commandsObj[commandName];
+    let runner      = null;
+
+    if (typeof Klass.commandArguments === 'function') {
+      let result = (Klass.commandArguments() || {});
+      runner = result.runner;
+    }
+
+    let result = context.match(commandName, ({ scope, store }, parserResult) => {
+      store({ command: commandName });
+
+      return scope(commandName, (context) => {
+        if (typeof runner === 'function')
+          return runner(context, parserResult);
+
+        return true;
+      });
+    });
+
+    if (result)
+      return true;
   }
 
-  return SimpleYargs.buildCommands(yargs, actionHandler, commands, {
-    actionHelper: function(commandName) {
-      var Klass = commandsObj[commandName];
-      return actionHandler.bind(Klass, commandName, Klass.path);
-    },
-  });
+  return false;
 }
 
 (async function() {
@@ -220,52 +269,127 @@ function createYargsCommands(yargs, commandsObj, actionHandler) {
   if(!process.env.PWD)
     process.env.PWD = process.cwd();
 
-  var PWD = process.env.PWD;
-  var argv = hideBin(process.argv);
-  var rootCommand;
+  let argOptions = CMDed(({ $, store, Types }) => {
+    $('--config', Types.STRING({
+      format: Path.resolve,
+    })) || store({ config: (Nife.isNotEmpty(process.env.MYTHIX_CONFIG_PATH)) ? Path.resolve(process.env.MYTHIX_CONFIG_PATH) : Path.join(process.env.PWD, '.mythix-config.js') });
 
-  try {
-    if (argv[0] !== 'init') {
-      argv        = hideBin(process.argv).concat('');
-      rootCommand = yargs(argv);
+    $('--runtime', Types.STRING());
 
-      var mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
-      var mythixCLIPAth = Path.resolve(mythixPath, 'cli');
-      var mythixCLI     = require(mythixCLIPAth);
-      var config        = mythixCLI.loadMythixConfig(PWD);
+    $('-e', Types.STRING(), { name: 'environment' });
+    $('--env', Types.STRING(), { name: 'environment' });
 
-      var Application = config.getApplicationClass(config);
-      if (typeof Application !== 'function')
-        throw new Error('Expected to find an Application class from "getApplicationClass", but none was returned.');
+    $('--version', Types.BOOLEAN());
 
-      var application         = await mythixCLI.createApplication(Application, { autoReload: false, database: false, httpServer: false });
-      var applicationOptions  = application.getOptions();
+    $('--help', Types.BOOLEAN());
 
-      var commands = await mythixCLI.loadCommands(applicationOptions.commandsPath);
+    // Consume to VOID
+    $('--', () => {});
 
-      rootCommand = createYargsCommands(rootCommand, commands, async function(command, commandPath) {
-        await mythixCLI.executeCommand(
-          config.configPath,
-          applicationOptions.commandsPath,
-          Path.dirname(require.resolve('yargs')),
-          Path.dirname(require.resolve('simple-yargs', '..')),
-          argv,
-          commandPath,
-          command,
-          config,
-        );
+    $('init', ({ scope }) => {
+      return scope('init', ({ $ }) => {
+        $('--dir', Types.STRING({ format: Path.resolve }), { name: 'dir' })
+          || $('-d', Types.STRING({ format: Path.resolve }), { name: 'dir' })
+          || store({ dir: Path.resolve('./') });
 
-        await application.stop();
+        $('--template', Types.STRING(), { name: 'template' })
+          || $('-t', Types.STRING(), { name: 'template' })
+          || store({ template: 'https://github.com/th317erd/mythix-app-template.git' });
+
+        return $(/^([\w](?:[\w-]+)?)$/, ({ store }, parserResult) => {
+          store({ name: parserResult.name });
+          return true;
+        }, {
+          formatParserResult: (value) => {
+            return { name: value[1] };
+          },
+        });
       });
-    } else {
-      argv        = hideBin(process.argv);
-      rootCommand = yargs(argv);
-    }
-  } catch (error) {
-    console.error(mythixPath, error);
+    });
+
+    return true;
+  }, { helpArgPattern: null });
+
+  if (argOptions.version) {
+    console.log(packageJSON.version);
+    return process.exit(0);
   }
 
-  rootCommand = SimpleYargs.buildCommands(rootCommand, initApplication, [ 'init(Create a new application with the given name) <appName:string(Specify application name)> [-d,-dir:string(Path at which to create application)] [-t,-template:string(Git URL to use to clone and create new project from)=https://github.com/th317erd/mythix-app-template.git(Default "https://github.com/th317erd/mythix-app-template.git")] [-tag:string(Specify tag or commit hash to clone template from)]' ]);
+  let help = {
+    '@usage': 'mythix-cli [command] [options]',
+    '@title': 'Run a CLI command',
+    '--config={config file path} | --config {config file path}': 'Specify the path to ".mythix-config.js". Default = "{CWD}/.mythix-config.js".',
+    '-e={environment} | -e {environment} | --env={environment} | --env {environment}': 'Specify the default environment to use. Default = "development".',
+    '--runtime={runtime} | --runtime {runtime}': 'Specify the runtime to use to launch the command. Default = "node"',
+    'init': {
+      '@usage': 'mythix-cli init app-name [options]',
+      '@title': 'Initialize a blank mythix application',
+      '@see': 'See: \'mythix-cli init --help\' for more help',
+      '-d={path} | -d {path} | --dir={path} | --dir {path}': 'Specify directory to create new application in. Default = "./"',
+      '-t={url} | -t {url} | --template={url} | --template {url}': 'Specify a git repository URL to use for a template to create the application with. Default = "https://github.com/th317erd/mythix-app-template.git".'
+    },
+  };
 
-  rootCommand.version(packageJSON.version).strictCommands().wrap(120).parse();
+  if (argOptions.init) {
+    if (Nife.isEmpty(argOptions.init)) {
+      showHelp(help.init);
+      return process.exit(1);
+    }
+
+    await initApplication(argOptions.init);
+
+    return;
+  }
+
+  try {
+    let rootOptions = { help };
+
+    let mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
+    let mythixCLIPAth = Path.resolve(mythixPath, 'cli');
+    let mythixCLI     = require(mythixCLIPAth);
+    let config        = mythixCLI.loadMythixConfig(argOptions.config);
+
+    let Application = config.getApplicationClass(config);
+    if (typeof Application !== 'function')
+      throw new Error('Expected to find an Application class from "getApplicationClass", but none was returned.');
+
+    let application         = await mythixCLI.createApplication(Application, { autoReload: false, database: false, httpServer: false });
+    let applicationOptions  = application.getOptions();
+
+    let commands = await mythixCLI.loadCommands(applicationOptions.commandsPath);
+    generateCommandHelp(commands, help);
+
+    let commandContext = CMDed((context) => {
+      let { $, Types, store } = context;
+
+      $('--config', Types.STRING({
+        format: Path.resolve,
+      })) || store({ config: (Nife.isNotEmpty(process.env.MYTHIX_CONFIG_PATH)) ? Path.resolve(process.env.MYTHIX_CONFIG_PATH) : Path.join(process.env.PWD, '.mythix-config.js') });
+
+      $('--runtime', Types.STRING());
+
+      $('-e', Types.STRING(), { name: 'environment' });
+      $('--env', Types.STRING(), { name: 'environment' });
+
+      return commandRunners(commands, context);
+    }, rootOptions);
+
+    if (!commandContext)
+      return process.exit(1);
+
+    await mythixCLI.executeCommand(
+      config,
+      applicationOptions,
+      commandContext,
+      commands[commandContext.command],
+      process.argv.slice(2),
+    );
+
+    await application.stop();
+  } catch (error) {
+    console.error(error);
+  }
+  // rootCommand = SimpleYargs.buildCommands(rootCommand, initApplication, [ 'init(Create a new application with the given name) <appName:string(Specify application name)> [-d,-dir:string(Path at which to create application)] [-t,-template:string(Git URL to use to clone and create new project from)=https://github.com/th317erd/mythix-app-template.git(Default "https://github.com/th317erd/mythix-app-template.git")] [-tag:string(Specify tag or commit hash to clone template from)]' ]);
+
+  // rootCommand.version(packageJSON.version).strictCommands().wrap(120).parse();
 })();
