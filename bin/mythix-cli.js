@@ -32,6 +32,10 @@ function spawnCommand(command, args, options) {
 (async function () {
   let config;
 
+  // Windows hack
+  if(!process.env.PWD)
+    process.env.PWD = process.cwd();
+
   let argOptions = CMDed(({ $, store }) => {
     $('--config', Types.STRING({
       format: Path.resolve,
