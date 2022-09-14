@@ -55,13 +55,15 @@ function spawnCommand(command, args, options) {
   const args        = process.argv.slice(2);
   const runtime     = argOptions.runtime || config.runtime || 'node';
   const runtimeArgs = config.runtimeArgs || [];
-  const commands    = [ runtime, (process.platform == 'win32') ? `${runtime}.cmd` : undefined ].filter(Boolean);
+  const hasCMD      = ((/\.cmd$/i).test(runtime));
+  const commands    = [ runtime, (process.platform == 'win32' && !hasCMD) ? `${runtime}.cmd` : undefined ].filter(Boolean);
 
   for (let i = 0, il = commands.length; i < il; i++) {
     let command = commands[i];
 
     try {
       await spawnCommand(command, runtimeArgs.concat([ Path.resolve(__dirname, 'runner.js') ], args));
+      break;
     } catch (error) {
       if (error.code === 'ENOENT' && (i + 1) < commands.length)
         continue;
