@@ -382,6 +382,8 @@ function commandRunners(commandsObj, context, showHelp) {
     let commandContext = CMDed((context) => {
       let { $, Types, store } = context;
 
+      store('mythixApplication', application);
+
       $('--config', Types.STRING({
         format: Path.resolve,
       })) || store({ config: (Nife.isNotEmpty(process.env.MYTHIX_CONFIG_PATH)) ? Path.resolve(process.env.MYTHIX_CONFIG_PATH) : Path.join(process.env.PWD, '.mythix-config.js') });
