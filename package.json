@@ -30,7 +30,7 @@
     "mythix": "^2.4.14"
   },
   "dependencies": {
-    "cmded": "^1.2.1",
+    "cmded": "^1.2.5",
     "nife": "^1.11.3"
   },
   "devDependencies": {

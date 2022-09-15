@@ -363,7 +363,7 @@ function commandRunners(commandsObj, context, showHelp) {
       showHelp(help[scope] || help)
     };
 
-    let rootOptions   = { help, showHelp: () => {}, helpArgPattern: null };
+    let rootOptions   = { help, showHelp: customShowHelp, helpArgPattern: null };
     let mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
     let mythixCLIPAth = Path.resolve(mythixPath, 'cli');
     let mythixCLI     = require(mythixCLIPAth);
