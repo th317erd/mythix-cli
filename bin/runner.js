@@ -230,7 +230,7 @@ function generateCommandHelp(commandsObj, globalHelp) {
   }
 }
 
-function commandRunners(commandsObj, context) {
+function commandRunners(commandsObj, context, showHelp) {
   let commandNames = Object.keys(commandsObj);
 
   for (let i = 0, il = commandNames.length; i < il; i++) {
@@ -243,12 +243,22 @@ function commandRunners(commandsObj, context) {
       runner = result.runner;
     }
 
-    let result = context.match(commandName, ({ scope, store }, parserResult) => {
+    let result = context.match(commandName, ({ scope, store, fetch }, parserResult) => {
       store({ command: commandName });
 
       return scope(commandName, (context) => {
-        if (typeof runner === 'function')
-          return runner(context, parserResult);
+        if (typeof runner === 'function') {
+          let runnerResult = runner(context, parserResult);
+          if (!runnerResult) {
+            showHelp(commandName);
+            return false;
+          }
+        }
+
+        if (fetch('help', false)) {
+          showHelp(commandName);
+          return false;
+        }
 
         return true;
       });
@@ -342,8 +352,18 @@ function commandRunners(commandsObj, context) {
   }
 
   try {
-    let rootOptions = { help };
+    let helpShown = false;
 
+    const customShowHelp = (scope) => {
+      if (helpShown)
+        return;
+
+      helpShown = true;
+
+      showHelp(help[scope] || help)
+    };
+
+    let rootOptions   = { help, showHelp: () => {}, helpArgPattern: null };
     let mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
     let mythixCLIPAth = Path.resolve(mythixPath, 'cli');
     let mythixCLI     = require(mythixCLIPAth);
@@ -371,11 +391,15 @@ function commandRunners(commandsObj, context) {
       $('-e', Types.STRING(), { name: 'environment' });
       $('--env', Types.STRING(), { name: 'environment' });
 
-      return commandRunners(commands, context);
+      $('--help', Types.BOOLEAN());
+
+      return commandRunners(commands, context, customShowHelp);
     }, rootOptions);
 
-    if (!commandContext)
+    if (!commandContext) {
+      customShowHelp();
       return process.exit(1);
+    }
 
     await mythixCLI.executeCommand(
       config,
