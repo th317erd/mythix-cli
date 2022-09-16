@@ -203,7 +203,7 @@ async function initApplication(args) {
   }
 }
 
-function generateCommandHelp(commandsObj, globalHelp) {
+async function generateCommandHelp(application, commandsObj, globalHelp) {
   let commandNames = Object.keys(commandsObj || {});
   for (let i = 0, il = commandNames.length; i < il; i++) {
     let commandName = commandNames[i];
@@ -211,7 +211,7 @@ function generateCommandHelp(commandsObj, globalHelp) {
     let help        = null;
 
     if (typeof Klass.commandArguments === 'function') {
-      let result = (Klass.commandArguments() || {});
+      let result = ((await Klass.commandArguments(application, 'help')) || {});
       help = result.help;
     }
 
@@ -230,7 +230,7 @@ function generateCommandHelp(commandsObj, globalHelp) {
   }
 }
 
-function commandRunners(commandsObj, context, showHelp) {
+async function commandRunners(application, commandsObj, context, showHelp) {
   let commandNames = Object.keys(commandsObj);
 
   for (let i = 0, il = commandNames.length; i < il; i++) {
@@ -239,16 +239,16 @@ function commandRunners(commandsObj, context, showHelp) {
     let runner      = null;
 
     if (typeof Klass.commandArguments === 'function') {
-      let result = (Klass.commandArguments() || {});
+      let result = ((await Klass.commandArguments(application, 'runner')) || {});
       runner = result.runner;
     }
 
-    let result = context.match(commandName, ({ scope, store, fetch }, parserResult) => {
+    let result = await context.match(commandName, async ({ scope, store, fetch, showHelp }, parserResult) => {
       store({ command: commandName });
 
-      return scope(commandName, (context) => {
+      return await scope(commandName, async (context) => {
         if (typeof runner === 'function') {
-          let runnerResult = runner(context, parserResult);
+          let runnerResult = await runner(context, parserResult);
           if (!runnerResult) {
             showHelp(commandName);
             return false;
@@ -354,13 +354,13 @@ function commandRunners(commandsObj, context, showHelp) {
   try {
     let helpShown = false;
 
-    const customShowHelp = (scope) => {
+    const customShowHelp = (subHelp) => {
       if (helpShown)
         return;
 
       helpShown = true;
 
-      showHelp(help[scope] || help)
+      showHelp(subHelp)
     };
 
     let rootOptions   = { help, showHelp: customShowHelp, helpArgPattern: null };
@@ -377,9 +377,9 @@ function commandRunners(commandsObj, context, showHelp) {
     let applicationOptions  = application.getOptions();
 
     let commands = await mythixCLI.loadCommands(applicationOptions.commandsPath);
-    generateCommandHelp(commands, help);
+    await generateCommandHelp(application, commands, help);
 
-    let commandContext = CMDed((context) => {
+    let commandContext = await CMDed(async (context) => {
       let { $, Types, store } = context;
 
       store('mythixApplication', application);
@@ -395,7 +395,7 @@ function commandRunners(commandsObj, context, showHelp) {
 
       $('--help', Types.BOOLEAN());
 
-      return commandRunners(commands, context, customShowHelp);
+      return await commandRunners(application, commands, context, customShowHelp);
     }, rootOptions);
 
     if (!commandContext) {
@@ -415,7 +415,4 @@ function commandRunners(commandsObj, context, showHelp) {
   } catch (error) {
     console.error(error);
   }
-  // rootCommand = SimpleYargs.buildCommands(rootCommand, initApplication, [ 'init(Create a new application with the given name) <appName:string(Specify application name)> [-d,-dir:string(Path at which to create application)] [-t,-template:string(Git URL to use to clone and create new project from)=https://github.com/th317erd/mythix-app-template.git(Default "https://github.com/th317erd/mythix-app-template.git")] [-tag:string(Specify tag or commit hash to clone template from)]' ]);
-
-  // rootCommand.version(packageJSON.version).strictCommands().wrap(120).parse();
 })();
