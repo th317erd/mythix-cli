@@ -94,11 +94,33 @@ function spawnProcess(name, args, options) {
   });
 }
 
-function createTemplateEngineContext(appName) {
-  let context = Object.create(null);
+function getFormattedAppName(appName) {
+  return appName.trim().replace(/[^\w-]+/g, '-').replace(/^[^a-zA-Z0-9]+/g, '').replace(/[^a-zA-Z0-9]+$/g, '').toLowerCase();
+}
 
-  context.APP_NAME      = () => appName;
-  context.RANDOM_SHA256 = () => randomHash('sha256');
+function getFormattedAppDisplayName(appName) {
+  return Nife.capitalize(getFormattedAppName(appName).replace(/[^a-zA-Z0-9]+/g, ' ').trim(), true);
+}
+
+function createTemplateEngineContext(templateClonePath, _appName) {
+  let context         = Object.create(null);
+  let appName         = getFormattedAppName(_appName);
+  let appDisplayName  = getFormattedAppDisplayName(_appName);
+
+  context.APP_NAME          = () => appName;
+  context.APP_DISPLAY_NAME  = () => appDisplayName;
+  context.RANDOM_SHA256     = () => randomHash('sha256');
+
+  try {
+    let helpersPath     = require.resolve(Path.join(templateClonePath, 'mythix-cli-template-helpers'));
+    let projectHelpers  = require(helpersPath);
+    if (projectHelpers && projectHelpers.default)
+      projectHelpers = projectHelpers.default;
+
+    context = Object.assign({}, projectHelpers, context);
+
+    FileSystem.unlinkSync(helpersPath);
+  } catch (error) {}
 
   return context;
 }
@@ -163,14 +185,14 @@ function runTemplateEngineOnProject(projectPath, context) {
   );
 }
 
-async function initApplication(args) {
+async function createApplication(args) {
   if (!args.dir || !('' + args.dir).match(/\S/))
     args.dir = Path.resolve(process.env.PWD);
   else
     args.dir = Path.resolve(args.dir);
 
   try {
-    let templateClonePath = Path.resolve(args.dir, args.appName);
+    let templateClonePath = Path.resolve(args.dir, getFormattedAppName(args.appName));
     let processArgs       = [ args.template, templateClonePath ];
     let tag;
 
@@ -186,17 +208,19 @@ async function initApplication(args) {
 
     FileSystem.rmSync(Path.resolve(templateClonePath, '.git'), { recursive: true, force: true });
 
-    runTemplateEngineOnProject(templateClonePath, createTemplateEngineContext(args.appName));
-
     await spawnProcess('npm', [ 'i' ], { env: { PWD: templateClonePath, CWD: templateClonePath }, cwd: templateClonePath });
 
-    console.log(`Empty mythix project created at ${templateClonePath}`);
+    runTemplateEngineOnProject(templateClonePath, createTemplateEngineContext(templateClonePath, args.appName));
+
+    console.log(`Mythix application created at ${templateClonePath}`);
     console.log('To finalize setup you need to:');
-    console.log('  1) Select and configure the correct database driver for mythix-orm');
+    console.log('  1) Install the correct database driver (default is mythix-orm-postgresql), and update configuration files:');
+    console.log(`    a) Open and modify ${Path.join(templateClonePath, 'app', 'config', 'db-config.js')} for database configuration`);
+    console.log(`    b) Open and modify ${Path.join(templateClonePath, 'app', 'config', 'sensitive.js')} for API keys`);
     console.log('  2) Define the models for your application');
-    console.log('  3) Create an initial migration for your models: `npx mythix-cli makemigrations --name initial`');
-    console.log('  4) Run migrations: `npx mythix-cli migrate`');
-    console.log('  5) Finally run your application: `npx mythix-cli serve`');
+    console.log('  3) Run migrations: `npx mythix-cli migrate`');
+    console.log('  4) Run the DB seeder: `mythix-cli shell` + `await seedDB();`');
+    console.log('  5) Finally run your application: `npm run -s start`');
   } catch (error) {
     console.error('ERROR: ', error);
     process.exit(1);
@@ -296,8 +320,8 @@ async function commandRunners(application, commandsObj, context, showHelp) {
     // Consume to VOID
     $('--', () => {});
 
-    $('init', ({ scope }) => {
-      return scope('init', ({ $ }) => {
+    $('create', ({ scope }) => {
+      return scope('create', ({ $ }) => {
         $('--dir', Types.STRING({ format: Path.resolve }), { name: 'dir' })
           || $('-d', Types.STRING({ format: Path.resolve }), { name: 'dir' })
           || store({ dir: Path.resolve('./') });
@@ -306,12 +330,12 @@ async function commandRunners(application, commandsObj, context, showHelp) {
           || $('-t', Types.STRING(), { name: 'template' })
           || store({ template: 'https://github.com/th317erd/mythix-app-template.git' });
 
-        return $(/^([\w](?:[\w-]+)?)$/, ({ store }, parserResult) => {
-          store({ name: parserResult.name });
+        return $(/^.*$/, ({ store }, parserResult) => {
+          store({ appName: parserResult.appName });
           return true;
         }, {
-          formatParserResult: (value) => {
-            return { name: value[1] };
+          formatParsedResult: (value) => {
+            return { appName: value[0] };
           },
         });
       });
@@ -331,22 +355,22 @@ async function commandRunners(application, commandsObj, context, showHelp) {
     '--config={config file path} | --config {config file path}': 'Specify the path to ".mythix-config.js". Default = "{CWD}/.mythix-config.js".',
     '-e={environment} | -e {environment} | --env={environment} | --env {environment}': 'Specify the default environment to use. Default = "development".',
     '--runtime={runtime} | --runtime {runtime}': 'Specify the runtime to use to launch the command. Default = "node"',
-    'init': {
-      '@usage': 'mythix-cli init app-name [options]',
+    'create': {
+      '@usage': 'mythix-cli create [app name] [options]',
       '@title': 'Initialize a blank mythix application',
-      '@see': 'See: \'mythix-cli init --help\' for more help',
+      '@see': 'See: \'mythix-cli create --help\' for more help',
       '-d={path} | -d {path} | --dir={path} | --dir {path}': 'Specify directory to create new application in. Default = "./"',
       '-t={url} | -t {url} | --template={url} | --template {url}': 'Specify a git repository URL to use for a template to create the application with. Default = "https://github.com/th317erd/mythix-app-template.git".'
     },
   };
 
-  if (argOptions.init) {
-    if (Nife.isEmpty(argOptions.init)) {
-      showHelp(help.init);
+  if (argOptions.create) {
+    if (Nife.isEmpty(argOptions.create)) {
+      showHelp(help.create);
       return process.exit(1);
     }
 
-    await initApplication(argOptions.init);
+    await createApplication(argOptions.create);
 
     return;
   }
