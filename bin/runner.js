@@ -387,11 +387,22 @@ async function commandRunners(application, commandsObj, context, showHelp) {
       showHelp(subHelp)
     };
 
-    let rootOptions   = { help, showHelp: customShowHelp, helpArgPattern: null };
-    let mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
-    let mythixCLIPAth = Path.resolve(mythixPath, 'cli');
-    let mythixCLI     = require(mythixCLIPAth);
-    let config        = mythixCLI.loadMythixConfig(argOptions.config);
+    let rootOptions;
+    let mythixPath;
+    let mythixCLIPAth;
+    let mythixCLI;
+    let config;
+
+    try {
+      rootOptions   = { help, showHelp: customShowHelp, helpArgPattern: null };
+      mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
+      mythixCLIPAth = Path.resolve(mythixPath, 'cli');
+      mythixCLI     = require(mythixCLIPAth);
+      config        = mythixCLI.loadMythixConfig(argOptions.config);
+    } catch (error) {
+      customShowHelp(help);
+      process.exit(1);
+    }
 
     let Application = config.getApplicationClass(config);
     if (typeof Application !== 'function')
