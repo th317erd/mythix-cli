@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
-const Path              = require('path');
-const { spawn }         = require('child_process');
-const { CMDed, Types }  = require('cmded');
+import Path               from 'node:path';
+import { spawn }          from 'node:child_process';
+import { fileURLToPath }  from 'node:url';
+import { CMDed, Types }   from 'cmded';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = Path.dirname(__filename);
 
 function spawnCommand(command, args, options) {
   return new Promise((resolve, reject) => {
@@ -47,7 +51,7 @@ function spawnCommand(command, args, options) {
   });
 
   try {
-    config = require(argOptions.config);
+    config = await import(argOptions.config);
   } catch (error) {
     config = {};
   }

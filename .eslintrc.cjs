@@ -1,5 +1,3 @@
-'use strict';
-
 /* eslint-disable no-magic-numbers */
 
 module.exports = {
@@ -8,11 +6,26 @@ module.exports = {
     'commonjs': true,
     'es2021':   true,
   },
+  'globals': {
+    'Buffer':     'readonly',
+    'process':    'readonly',
+    'afterAll':   'readonly',
+    'afterEach':  'readonly',
+    'beforeAll':  'readonly',
+    'beforeEach': 'readonly',
+    'describe':   'readonly',
+    'expect':     'readonly',
+    'fail':       'readonly',
+    'fdescribe':  'readonly',
+    'fit':        'readonly',
+    'it':         'readonly',
+  },
   'extends': [
     'eslint:recommended',
   ],
   'parserOptions': {
-    'ecmaVersion': 'latest',
+    'sourceType':   'module',
+    'ecmaVersion':  'latest',
   },
   'plugins': [
     '@spothero/eslint-plugin-spothero',

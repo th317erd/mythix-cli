@@ -1,17 +1,23 @@
-const Nife        = require('nife');
-const Path        = require('path');
-const FileSystem  = require('fs');
-const { spawn }   = require('child_process');
+import Path               from 'node:path';
+import FileSystem         from 'node:fs';
+import { spawn }          from 'node:child_process';
+import { fileURLToPath }  from 'node:url';
+import { createRequire }  from 'node:module';
+import Nife               from 'nife';
 
-const {
+const require     = createRequire(import.meta.url);
+const __filename  = fileURLToPath(import.meta.url);
+const __dirname   = Path.dirname(__filename);
+
+import {
   CMDed,
   showHelp,
-} = require('cmded');
+} from 'cmded';
 
-const {
+import {
   createHash,
   randomFillSync,
-} = require('crypto');
+} from 'node:crypto';
 
 function randomBytes(length) {
   let buffer = Buffer.alloc(length);
@@ -46,7 +52,6 @@ function walkDir(rootPath, _options, _callback, _allFiles, _depth) {
       continue;
     else if (filterFunc instanceof RegExp && !filterFunc.match(fullFileName))
       continue;
-
 
     if (stats.isDirectory()) {
       walkDir(fullFileName, options, callback, allFiles, depth + 1);
@@ -102,7 +107,7 @@ function getFormattedAppDisplayName(appName) {
   return Nife.capitalize(getFormattedAppName(appName).replace(/[^a-zA-Z0-9]+/g, ' ').trim(), true);
 }
 
-function createTemplateEngineContext(templateClonePath, _appName) {
+async function createTemplateEngineContext(templateClonePath, _appName) {
   let context         = Object.create(null);
   let appName         = getFormattedAppName(_appName);
   let appDisplayName  = getFormattedAppDisplayName(_appName);
@@ -113,7 +118,7 @@ function createTemplateEngineContext(templateClonePath, _appName) {
 
   try {
     let helpersPath     = require.resolve(Path.join(templateClonePath, 'mythix-cli-template-helpers'));
-    let projectHelpers  = require(helpersPath);
+    let projectHelpers  = await import(helpersPath);
     if (projectHelpers && projectHelpers.default)
       projectHelpers = projectHelpers.default;
 
@@ -126,10 +131,10 @@ function createTemplateEngineContext(templateClonePath, _appName) {
 }
 
 function getTemplatedFileName(fileName, context) {
-  return fileName.replace(/__([A-Z0-9_]+)__/g, function(m, varName) {
+  return fileName.replace(/\b__([A-Z0-9_-]+)__\b/g, function(m, varName) {
     let func = context[varName];
     if (typeof func !== 'function')
-      return '';
+      return varName;
 
     return func();
   }).replace(/__/g, '');
@@ -210,7 +215,7 @@ async function createApplication(args) {
 
     await spawnProcess('npm', [ 'i' ], { env: { PWD: templateClonePath, CWD: templateClonePath }, cwd: templateClonePath });
 
-    runTemplateEngineOnProject(templateClonePath, createTemplateEngineContext(templateClonePath, args.appName));
+    runTemplateEngineOnProject(templateClonePath, await createTemplateEngineContext(templateClonePath, args.appName));
 
     console.log(`Mythix application created at ${templateClonePath}`);
     console.log('To finalize setup you need to:');
@@ -295,9 +300,20 @@ async function commandRunners(application, commandsObj, context, showHelp) {
   return false;
 }
 
+function loadJSON(filePath, defaultValue) {
+  try {
+    let content = FileSystem.readFileSync(filePath, 'utf8');
+    return JSON.parse(content);
+  } catch (error) {
+    console.error(`Error loading JSON file "${filePath}": `, error);
+    return (arguments.length > 1) ? defaultValue : {};
+  }
+}
+
+
 (async function() {
   const packageJSONPath = Path.resolve(__dirname, '..', 'package.json');
-  const packageJSON     = require(packageJSONPath);
+  const packageJSON     = loadJSON(packageJSONPath, {});
 
   // Windows hack
   if(!process.env.PWD)
@@ -396,10 +412,11 @@ async function commandRunners(application, commandsObj, context, showHelp) {
     try {
       rootOptions   = { help, showHelp: customShowHelp, helpArgPattern: null };
       mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
-      mythixCLIPAth = Path.resolve(mythixPath, 'cli');
-      mythixCLI     = require(mythixCLIPAth);
-      config        = mythixCLI.loadMythixConfig(argOptions.config);
+      mythixCLIPAth = Path.resolve(mythixPath, 'index.js');
+      mythixCLI     = await import(mythixCLIPAth);
+      config        = await mythixCLI.loadMythixConfig(argOptions.config);
     } catch (error) {
+      console.error('THERE WAS AN ERROR: ', error);
       customShowHelp(help);
       process.exit(1);
     }
@@ -408,10 +425,11 @@ async function commandRunners(application, commandsObj, context, showHelp) {
     if (typeof Application !== 'function')
       throw new Error('Expected to find an Application class from "getApplicationClass", but none was returned.');
 
-    let application         = await mythixCLI.createApplication(Application, { autoReload: false, database: false, httpServer: false });
+    let application         = await mythixCLI.createApplication(Application, { cli: true, database: false, httpServer: false });
     let applicationOptions  = application.getOptions();
 
-    let commands = await mythixCLI.loadCommands(applicationOptions.commandsPath);
+    let commands = Application.getCommandList();
+    console.log('Commands: ', commands);
     await generateCommandHelp(application, commands, help);
 
     let commandContext = await CMDed(async (context) => {
