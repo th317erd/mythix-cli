@@ -107,6 +107,28 @@ function getFormattedAppDisplayName(appName) {
   return Nife.capitalize(getFormattedAppName(appName).replace(/[^a-zA-Z0-9]+/g, ' ').trim(), true);
 }
 
+function resolveJavascriptFileName(filePathWithoutExtension) {
+  if (FileSystem.existsSync(filePathWithoutExtension)) {
+    let stats = FileSystem.statSync(filePathWithoutExtension);
+    if (stats.isDirectory())
+      return resolveJavascriptFileName(`${filePathWithoutExtension}/index`);
+
+    return filePathWithoutExtension;
+  }
+
+  let filePath = `${filePathWithoutExtension}.mjs`;
+  if (FileSystem.existsSync(filePath))
+    return filePath;
+
+  filePath = `${filePathWithoutExtension}.cjs`;
+  if (FileSystem.existsSync(filePath))
+    return filePath;
+
+  filePath = `${filePathWithoutExtension}.js`;
+  if (FileSystem.existsSync(filePath))
+    return filePath;
+}
+
 async function createTemplateEngineContext(templateClonePath, _appName) {
   let context         = Object.create(null);
   let appName         = getFormattedAppName(_appName);
@@ -117,7 +139,7 @@ async function createTemplateEngineContext(templateClonePath, _appName) {
   context.RANDOM_SHA256     = () => randomHash('sha256');
 
   try {
-    let helpersPath     = require.resolve(Path.join(templateClonePath, 'mythix-cli-template-helpers'));
+    let helpersPath     = resolveJavascriptFileName(Path.join(templateClonePath, 'mythix-cli-template-helpers'));
     let projectHelpers  = await import(helpersPath);
     if (projectHelpers && projectHelpers.default)
       projectHelpers = projectHelpers.default;
@@ -125,7 +147,9 @@ async function createTemplateEngineContext(templateClonePath, _appName) {
     context = Object.assign({}, projectHelpers, context);
 
     FileSystem.unlinkSync(helpersPath);
-  } catch (error) {}
+  } catch (error) {
+    console.error('Unable to import helpers: ', error);
+  }
 
   return context;
 }
