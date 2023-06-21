@@ -405,15 +405,15 @@ function loadJSON(filePath, defaultValue) {
 
     let rootOptions;
     let mythixPath;
-    let mythixCLIPAth;
+    let mythixCLIPath;
     let mythixCLI;
     let config;
 
     try {
       rootOptions   = { help, showHelp: customShowHelp, helpArgPattern: null };
-      mythixPath    = Path.dirname(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
-      mythixCLIPAth = Path.resolve(mythixPath, 'index.js');
-      mythixCLI     = await import(mythixCLIPAth);
+      mythixCLIPath = Path.resolve(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
+      mythixPath    = Path.dirname(mythixCLIPath);
+      mythixCLI     = (await import(mythixCLIPath)).CLI;
       config        = await mythixCLI.loadMythixConfig(argOptions.config);
     } catch (error) {
       console.error('THERE WAS AN ERROR: ', error);
@@ -421,7 +421,7 @@ function loadJSON(filePath, defaultValue) {
       process.exit(1);
     }
 
-    let Application = config.getApplicationClass(config);
+    let Application = await config.getApplicationClass(config);
     if (typeof Application !== 'function')
       throw new Error('Expected to find an Application class from "getApplicationClass", but none was returned.');
 
@@ -429,7 +429,6 @@ function loadJSON(filePath, defaultValue) {
     let applicationOptions  = application.getOptions();
 
     let commands = Application.getCommandList();
-    console.log('Commands: ', commands);
     await generateCommandHelp(application, commands, help);
 
     let commandContext = await CMDed(async (context) => {

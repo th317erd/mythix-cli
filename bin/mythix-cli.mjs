@@ -66,7 +66,7 @@ function spawnCommand(command, args, options) {
     let command = commands[i];
 
     try {
-      await spawnCommand(command, runtimeArgs.concat([ Path.resolve(__dirname, 'runner.js') ], args));
+      await spawnCommand(command, runtimeArgs.concat([ Path.resolve(__dirname, 'runner.mjs') ], args));
       break;
     } catch (error) {
       if (error.code === 'ENOENT' && (i + 1) < commands.length)

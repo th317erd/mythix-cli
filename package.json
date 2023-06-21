@@ -1,6 +1,6 @@
 {
   "bin": {
-    "mythix-cli": "./bin/mythix-cli.js"
+    "mythix-cli": "./bin/mythix-cli.mjs"
   },
   "name": "mythix-cli",
   "version": "1.3.9",
