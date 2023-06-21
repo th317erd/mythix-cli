@@ -429,16 +429,16 @@ function loadJSON(filePath, defaultValue) {
 
     let rootOptions;
     let mythixPath;
-    let mythixCLIPath;
+    let mythixIndexPath;
     let mythixCLI;
     let config;
 
     try {
-      rootOptions   = { help, showHelp: customShowHelp, helpArgPattern: null };
-      mythixCLIPath = Path.resolve(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
-      mythixPath    = Path.dirname(mythixCLIPath);
-      mythixCLI     = (await import(mythixCLIPath)).CLI;
-      config        = await mythixCLI.loadMythixConfig(argOptions.config);
+      rootOptions     = { help, showHelp: customShowHelp, helpArgPattern: null };
+      mythixIndexPath = Path.resolve(require.resolve('mythix', { paths: [ process.env.PWD, Path.resolve(process.env.PWD, 'node_modules') ] }));
+      mythixPath      = Path.dirname(mythixIndexPath);
+      mythixCLI       = (await import(mythixIndexPath)).CLI;
+      config          = await mythixCLI.loadMythixConfig(argOptions.config);
     } catch (error) {
       console.error('THERE WAS AN ERROR: ', error);
       customShowHelp(help);
