@@ -440,9 +440,22 @@ function loadJSON(filePath, defaultValue) {
       mythixCLI       = (await import(mythixIndexPath)).CLI;
       config          = await mythixCLI.loadMythixConfig(argOptions.config);
     } catch (error) {
-      console.error('THERE WAS AN ERROR: ', error);
       customShowHelp(help);
+
+      if (error.code !== 'MODULE_NOT_FOUND') {
+        console.error('\nError:', error.message || error);
+      } else {
+        console.log('\nNote: Run from within a mythix project to see additional commands.');
+      }
+
       process.exit(1);
+    }
+
+    if (!config.applicationPath) {
+      customShowHelp(help);
+      console.error('\nNo mythix application found. Run this command from within a mythix project directory,');
+      console.error('or use "mythix-cli create <app-name>" to create a new project.');
+      return process.exit(1);
     }
 
     let Application = await config.getApplicationClass(config);

@@ -4,6 +4,9 @@
   },
   "name": "mythix-cli",
   "version": "2.0.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "description": "Mythix CLI utility",
   "main": "src/index.mjs",
   "type": "module",
@@ -29,6 +32,11 @@
   "homepage": "https://github.com/th317erd/mythix-cli#readme",
   "peerDependencies": {
     "mythix": "^4.0.1"
+  },
+  "peerDependenciesMeta": {
+    "mythix": {
+      "optional": true
+    }
   },
   "dependencies": {
     "cmded": "^1.2.5",
